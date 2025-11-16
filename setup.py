@@ -3,8 +3,13 @@ import setuptools
 
 AUTHORS = ['Felix Book']
 
-with open('requirements.txt', 'r') as f:
-  requirements = f.read().splitlines()
+requirements = [
+    'matplotlib>=3.1.2',
+    'numpy>=1.16.4',
+    'pylatex>=1.4.1',
+    'pillow>=9.0.0',
+    'pymupdf>=1.23.0',
+]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -15,7 +20,7 @@ setuptools.setup(
       description='Visualization of controller block diagrams',
       packages=setuptools.find_packages(),
       install_requires=requirements,
-      python_requires='>=3.6',
+      python_requires='>=3.8',
       author=', '.join(sorted(AUTHORS, key=lambda n: n.split()[-1].lower())),
       long_description=long_description,
       long_description_content_type="text/markdown",

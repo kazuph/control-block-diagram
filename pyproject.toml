@@ -11,16 +11,19 @@ authors = [
 ]
 description = "Python Toolbox to draw Control Block Diagrams"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dynamic = ["dependencies"]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+dependencies = [
+    "matplotlib>=3.1.2",
+    "numpy>=1.16.4",
+    "pylatex>=1.4.1",
+    "pillow>=9.0.0",
+    "pymupdf>=1.23.0",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/upb-lea/control-block-diagram"

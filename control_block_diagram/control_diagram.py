@@ -6,9 +6,19 @@ from .components.component import Component
 import os
 import sys
 import tempfile
+import shutil
 from IPython.display import display
 from .pdf_viewer import PDFViewer
 from .pdf_viewer import PDFViewerNB
+from .pdf_utils import save_pdf_as_image
+
+IMAGE_FORMATS = ('png', 'jpg', 'jpeg', 'webp')
+IMAGE_FILETYPE_LABELS = {
+    'png': 'Portable Network Graphics (*.png)',
+    'jpg': 'JPEG Image (*.jpg)',
+    'jpeg': 'JPEG Image (*.jpeg)',
+    'webp': 'WebP Image (*.webp)'
+}
 
 
 class ControllerDiagram:
@@ -44,6 +54,7 @@ class ControllerDiagram:
         self._temp_file = None
         self._changed = True
         self._size = (0, 0)
+        self._image_dpi = self._configuration_input.get('image_dpi', 300)
         self.set_document()
 
     def set_document(self):
@@ -83,8 +94,8 @@ class ControllerDiagram:
             First creates a latex file from the added components. From this file a PDF file can be created and saved.
         """
 
-        # Store the data types
-        self._data_type = data_type if isinstance(data_type, (tuple, list)) else [data_type]
+        requested_types = data_type or ('pdf',)
+        self._data_type = [str(dtype).lower() for dtype in requested_types]
         self._clean_tex = 'tex' not in self._data_type
 
         # build the pylatex document
@@ -92,12 +103,22 @@ class ControllerDiagram:
 
         # Opens the window for selecting the folder and entering the file name and generates the desired file
         for filename in self._get_filename():
-            name, data_type = filename.rsplit('.', 1)
+            if not filename:
+                continue
+
+            name, extension = os.path.splitext(filename)
+            data_type = extension.lstrip('.').lower()
+
             if data_type == 'pdf':
                 self._doc.generate_pdf(name, compiler='pdflatex', clean_tex=self._clean_tex)
                 self._pdf_name = filename
             elif data_type == 'tex' and 'pdf' not in self._data_type:
                 self._doc.generate_tex(name)
+            elif data_type in IMAGE_FORMATS:
+                self._export_image_file(filename, data_type)
+            else:
+                raise ValueError(
+                    f'The file type {data_type} is not supported. Supported types: pdf, tex, png, jpg, jpeg, webp.')
 
     def _build(self):
         """
@@ -125,11 +146,24 @@ class ControllerDiagram:
 
         self._changed = False
 
+    def _export_image_file(self, filename, image_format):
+        """
+            Creates a temporary PDF, renders it, and saves the output using an image format.
+        """
+        temp_dir = tempfile.mkdtemp(prefix='cbd-export-')
+        temp_base = os.path.join(temp_dir, 'diagram')
+        try:
+            self._doc.generate_pdf(temp_base, compiler='pdflatex', clean_tex=True)
+            pdf_path = temp_base + '.pdf'
+            save_pdf_as_image(pdf_path, filename, image_format=image_format, dpi=self._image_dpi)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
     def build_temp(self):
         """
              Creates a temporary PDF file to display it in the PDF Viewer.
         """
-        filename = tempfile.gettempdir() + r'\ControlBlockDiagram'
+        filename = os.path.join(tempfile.gettempdir(), 'ControlBlockDiagram')
         self._temp_file = filename + '.pdf'
         if self._doc is None or self._changed:
             self._build()
@@ -167,7 +201,7 @@ class ControllerDiagram:
         """
             Builds a PDF file in the current working directory
         """
-        self._local_name = os.getcwd() + r'ControlBlockDiagram'
+        self._local_name = os.path.join(os.getcwd(), 'ControlBlockDiagram')
         if self._doc is None or self._changed:
             self._build()
         self._doc.generate_pdf(self._local_name, compiler='pdflatex', clean_tex=True)
@@ -206,7 +240,8 @@ class ControllerDiagram:
             if self._temp_file is not None:
                 self.delete_temp()
         else:
-            self._pdf_viewer.close_pdf()
+            if self._pdf_viewer is not None:
+                self._pdf_viewer.close_pdf()
             if self._temp_file is not None:
                 self.delete_temp()
 
@@ -240,7 +275,12 @@ class ControllerDiagram:
                 filetypes = (('TeX Document (*.tex)', '*.tex'), ('All Files', '*.*'))
                 yield filedialog.asksaveasfilename(initialdir='/', title='Save as', filetypes=filetypes,
                                                    defaultextension='.tex')
-            elif data_type not in ['pdf', 'tex']:
+            elif data_type in IMAGE_FORMATS:
+                description = IMAGE_FILETYPE_LABELS[data_type]
+                pattern = f'*.{data_type}'
+                filetypes = ((description, pattern), ('All Files', '*.*'))
+                yield filedialog.asksaveasfilename(initialdir='/', title='Save as', filetypes=filetypes,
+                                                   defaultextension=f'.{data_type}')
+            else:
                 raise ValueError(
-                    f'The file type {data_type} is not supported. Use the Portable Document Format (pdf) or Tex'
-                    f' Document (tex) file type.')
+                    f'The file type {data_type} is not supported. Supported types: pdf, tex, png, jpg, jpeg, webp.')
